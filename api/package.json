@@ -2,9 +2,10 @@
   "name": "ai-saas-api",
   "private": true,
   "type": "module",
+  "main": "dist/index.js",
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "start": "func start"
+    "start": "npm run build && func start"
   },
   "dependencies": {
     "@azure/functions": "^4.7.0",

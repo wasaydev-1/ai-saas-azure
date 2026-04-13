@@ -9,6 +9,17 @@ const nextConfig: NextConfig = {
     unoptimized: true,
   },
   trailingSlash: true,
+  async rewrites() {
+    // Local dev convenience: proxy `/api/*` to Azure Functions host.
+    // In production on Azure Static Web Apps, `/api/*` is handled by SWA -> Functions.
+    if (process.env.NODE_ENV !== "development") return [];
+    return [
+      {
+        source: "/api/:path*",
+        destination: "http://localhost:7071/api/:path*",
+      },
+    ];
+  },
   /**
    * In dev, webpack’s filesystem cache can get out of sync on Windows after Fast Refresh
    * or env reloads, causing missing chunk errors (`Cannot find module './NNN.js'`) and
