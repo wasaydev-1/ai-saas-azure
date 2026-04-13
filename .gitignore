@@ -28,8 +28,10 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# env files (keep templates committed; local overrides ignored)
-.env*.local
+# env files (commit only .env.example)
+.env
+.env.*
+!.env.example
 
 # vercel
 .vercel
