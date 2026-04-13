@@ -4,7 +4,7 @@ import path from "node:path";
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
-  output: "standalone",
+  output: "export",
   turbopack: {
     root: path.join(__dirname),
   },
