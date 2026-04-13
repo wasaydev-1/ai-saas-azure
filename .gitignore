@@ -37,6 +37,9 @@ yarn-error.log*
 # Azure Functions local settings
 api/local.settings.json
 
+# Azure Functions build output
+api/dist/
+
 # vercel
 .vercel
 
