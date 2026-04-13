@@ -1,0 +1,142 @@
+Developer Code of Conduct & Aisleris (Next.js) Workflow
+========================================================
+
+This guide describes how we work in the Aisleris repo: code style, folder layout,
+auth/API conventions, commits, and branches/PRs.
+
+If you push code here, follow these rules.
+
+------------------------------------
+
+1. How we write Next.js / React code
+------------------------------------
+
+- Keep changes small
+  - Do one thing at a time (one feature, one bug fix, one refactor).
+  - If a change is getting large, stop and split it into smaller PRs.
+
+- Keep files reasonable
+  - Avoid giant page components or API modules.
+  - Rough targets:
+    - Route pages and presentational components: ~300–400 lines when possible.
+    - Hooks, API modules, and complex logic: ~400–500 lines; split earlier if it helps clarity.
+  - If a file grows past that, extract smaller components, hooks, or helpers.
+
+- Keep responsibilities clear
+  - Route files (`page.tsx`) should orchestrate layout + wiring; push heavy logic into hooks
+    or `features/<feature>/` modules.
+  - `components` should focus on UI and local state; shared data fetching lives in hooks or API helpers.
+  - One main responsibility per file (one primary export, or a tight pair like component + types).
+
+- Name things clearly (TypeScript / React)
+  - Pages: `page.tsx` inside the route folder (App Router).
+  - Feature-specific UI: `src/features/<feature>/components/...` or `hooks/...`.
+  - Shared UI: `src/shared/ui/...`, shared primitives in `src/shared/components/...`.
+  - API helpers: `*.api.ts` under the feature (e.g. `employees.api.ts`).
+  - Types: `types/index.ts` or `feature.types.ts` inside the feature.
+  - Avoid cryptic abbreviations; prefer explicit names.
+
+- Comment the “why”, not the “what”
+  - Explain intent, non-obvious behavior, edge cases, or trade-offs.
+  - Do not comment every line; remove stale comments when you refactor.
+
+- Match the project structure
+  - `src/app/` — App Router: layouts, route groups `(auth)`, `(dashboard)`, `app/api/...`.
+  - `src/features/<feature>/` — feature code: `api/`, `components/`, `hooks/`, `types/`, etc.
+  - `src/shared/` — cross-cutting UI, contexts, constants, utilities, types.
+  - `src/lib/` — app-wide infra: HTTP client, API base URL, auth tokens/cookies, `serverFetch` helpers.
+  - Do not introduce new top-level patterns without a short team agreement.
+
+------------------------------------
+
+2. Auth, middleware, and API calls
+----------------------------------
+
+- Middleware (`src/middleware.ts`)
+  - Public routes and protected prefixes are defined here; keep them in sync with real routes
+    under `src/app/`.
+  - Session cookie name used for gating is `accessToken` (set via `src/lib/auth-cookie.ts`).
+  - Skip `/_next`, `/api`, favicon, and static-like paths; do not run auth on asset requests.
+
+- Browser vs backend URL
+  - Client-side code should call the same-origin API base (`/api/v1` via `getApiBaseUrl()`),
+    not the raw backend host, to avoid CORS issues in the browser.
+  - Server-side proxy: `src/app/api/v1/[...path]/route.ts` forwards to `BACKEND_API_URL`
+    (with `/api/v1` appended if the env omits it).
+
+- Secrets and env
+  - Do not commit real secrets. Use `.env.local` (gitignored) for local secrets.
+  - `NEXT_PUBLIC_*` vars are exposed to the browser; never put secrets there.
+
+------------------------------------
+
+3. Creating new files
+---------------------
+
+- Before you add a file
+  - Search for similar patterns (another feature’s `api/` or `hooks/`).
+  - Place the file under the correct feature or `shared`/`lib`.
+
+- Where to put it
+  - New screen: `src/app/(dashboard)/<route>/page.tsx` (or `(auth)` as appropriate),
+    with feature logic in `src/features/<feature>/`.
+  - New API surface: `src/features/<feature>/api/*.api.ts` and use `apiClient` or shared fetch helpers.
+  - Reusable button/input/table: `src/shared/ui` or `src/shared/components`.
+
+- What goes inside
+  - Prefer “use client” only where needed (state, effects, browser APIs).
+  - Keep server components default when possible for data-heavy pages.
+
+------------------------------------
+
+4. Commits
+----------
+
+- One logical change per commit
+  - Examples:
+    - `feat: add employees table filters`
+    - `fix: correct dashboard KPI loading state`
+    - `refactor: extract attendance summary hook`
+
+- Do not commit junk
+  - No `.next/` output, no secrets, no editor noise. Use `.gitignore`.
+
+- Commit message style
+  - Short, present tense, first line under ~72 characters, no trailing period on the subject.
+  - Prefixes: `feat:`, `fix:`, `refactor:`, `chore:`, `docs:`.
+
+- Before you commit
+  - Run `npm run lint` and fix new issues.
+  - Run `npm run build` for larger changes.
+  - Remove large blocks of commented-out code unless there is a short reason to keep them.
+
+------------------------------------
+
+5. Branches and PRs
+-------------------
+
+- Use a feature branch; avoid committing directly to the main production branch.
+
+- Branch naming
+  - `feature/<short-name>-<developer>` (lowercase, hyphens).
+  - Example: `feature/employees-export-wasay`
+
+- Pull requests
+  - Small, focused PRs; title matches the main change.
+  - Description: what changed, why, how to test (routes touched, auth on/off).
+
+- During review
+  - Address feedback promptly; prefer follow-up commits over heavy force-pushes after review starts.
+
+------------------------------------
+
+6. Quality and testing
+----------------------
+
+- Run the linter and a production build before merge when the change is non-trivial.
+- For new behavior, add or update tests when the project has tests for that area.
+- Security: validate assumptions for data from APIs and user input; do not log tokens or passwords.
+
+------------------------------------
+
+End of document
