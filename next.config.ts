@@ -3,7 +3,12 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
-  output: "standalone",
+  // Azure Static Web Apps expects a static artifact folder (default: `out`)
+  output: "export",
+  images: {
+    unoptimized: true,
+  },
+  trailingSlash: true,
   /**
    * In dev, webpack’s filesystem cache can get out of sync on Windows after Fast Refresh
    * or env reloads, causing missing chunk errors (`Cannot find module './NNN.js'`) and
