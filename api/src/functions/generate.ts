@@ -1,41 +1,14 @@
 import { app, HttpRequest, HttpResponseInit, InvocationContext } from "@azure/functions";
 import { AzureOpenAI } from "openai";
-import type { SpeechCreateParams } from "openai/resources/audio/speech";
-
-const TTS_VOICES = new Set([
-  "alloy",
-  "ash",
-  "ballad",
-  "coral",
-  "echo",
-  "fable",
-  "onyx",
-  "nova",
-  "sage",
-  "shimmer",
-  "verse",
-]);
-
-const MIME_BY_FORMAT: Record<string, string> = {
-  mp3: "audio/mpeg",
-  opus: "audio/opus",
-  aac: "audio/aac",
-  flac: "audio/flac",
-  wav: "audio/wav",
-  pcm: "audio/pcm",
-};
+import crypto from "node:crypto";
+import { getCosmosClient, getCosmosConfigFromEnv } from "../lib/cosmos.js";
 
 export async function generate(
   req: HttpRequest,
   _ctx: InvocationContext,
 ): Promise<HttpResponseInit> {
   const body = (await req.json().catch(() => null)) as
-    | {
-        prompt?: string;
-        voice?: string;
-        response_format?: "mp3" | "opus" | "aac" | "flac" | "wav" | "pcm";
-        instructions?: string;
-      }
+    | { prompt?: string }
     | null;
 
   const prompt = body?.prompt?.trim();
@@ -43,13 +16,6 @@ export async function generate(
     return {
       status: 400,
       jsonBody: { error: "Missing prompt" },
-    };
-  }
-
-  if (prompt.length > 4096) {
-    return {
-      status: 400,
-      jsonBody: { error: "Prompt too long for TTS (max 4096 characters)" },
     };
   }
 
@@ -72,12 +38,6 @@ export async function generate(
     };
   }
 
-  const defaultVoice = process.env.AZURE_OPENAI_DEFAULT_VOICE?.trim() || "alloy";
-  const preferred = body?.voice?.trim() || defaultVoice;
-  const voice = TTS_VOICES.has(preferred) ? preferred : "alloy";
-  const response_format = body?.response_format ?? "mp3";
-  const instructions = body?.instructions?.trim();
-
   const client = new AzureOpenAI({
     endpoint,
     apiKey,
@@ -86,26 +46,46 @@ export async function generate(
   });
 
   try {
-    const speech = await client.audio.speech.create({
+    const result = await client.chat.completions.create({
       model: deployment,
-      input: prompt,
-      voice: voice as SpeechCreateParams["voice"],
-      response_format,
-      ...(instructions ? { instructions } : {}),
+      messages: [
+        {
+          role: "system",
+          content:
+            "You are a helpful assistant. Reply concisely and clearly. If you must assume, say so.",
+        },
+        { role: "user", content: prompt },
+      ],
+      max_completion_tokens: 400,
     });
 
-    const buf = Buffer.from(await speech.arrayBuffer());
-    const mimeType = MIME_BY_FORMAT[response_format] ?? "application/octet-stream";
+    const content = result.choices?.[0]?.message?.content ?? "";
+
+    // Best-effort history save (doesn't block the response if Cosmos is misconfigured).
+    try {
+      const cfg = getCosmosConfigFromEnv();
+      if (cfg) {
+        const container = getCosmosClient(cfg)
+          .database(cfg.databaseId)
+          .container(cfg.containerId);
+        await container.items.create({
+          id: crypto.randomUUID(),
+          type: "generation",
+          title: prompt.slice(0, 80) || "generation",
+          content: { prompt, content },
+          metadata: { model: deployment },
+          createdAt: new Date().toISOString(),
+        });
+      }
+    } catch {
+      // ignore
+    }
 
     return {
       status: 200,
       jsonBody: {
-        kind: "tts",
         prompt,
-        voice,
-        response_format,
-        mimeType,
-        audioBase64: buf.toString("base64"),
+        content,
       },
     };
   } catch (err) {

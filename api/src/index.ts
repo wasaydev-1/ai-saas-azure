@@ -2,6 +2,7 @@
 // Importing modules registers HTTP triggers via `app.http(...)`.
 import "./functions/health.js";
 import "./functions/generate.js";
+import "./functions/history.js";
 import "./functions/upload.js";
 import "./functions/save.js";
 import "./functions/contact.js";
